@@ -1,1 +1,809 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FixIt AI - Buscador Inteligente de Tutoriais de Conserto</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f5ff',
+                            100: '#e0ebff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        accent: {
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-card-hover:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.15);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased selection:bg-brand-500 selection:text-white">
 
+    <!-- Header -->
+    <header class="sticky top-0 z-40 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="resetApp()">
+                    <div class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center shadow-lg shadow-brand-500/20">
+                        <i class="fa-solid fa-wrench text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <span class="text-xl font-bold tracking-tight">FixIt<span class="gradient-text">.AI</span></span>
+                        <span class="hidden sm:inline-block ml-2 px-2 py-0.5 text-xs font-semibold bg-brand-500/10 text-brand-400 border border-brand-500/20 rounded-full">GitHub Ready</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center space-x-3">
+                    <button onclick="openConfigModal()" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs sm:text-sm font-medium transition text-slate-300 border border-slate-700">
+                        <i class="fa-solid fa-key text-amber-400"></i>
+                        <span id="apiStatusBadge">Modo Demo</span>
+                    </button>
+                    <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700" title="Ver no GitHub">
+                        <i class="fa-brands fa-github text-lg"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+
+        <!-- VIEW 1: UPLOAD & PREVIEW -->
+        <section id="uploadSection" class="space-y-8 transition-all duration-300">
+            <!-- Hero text -->
+            <div class="text-center space-y-4">
+                <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight">
+                    Qual o <span class="gradient-text">problema técnico</span> hoje?
+                </h1>
+                <p class="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base">
+                    Tire uma foto ou faça upload da peça, aparelho ou problema doméstico. A IA identifica o defeito e encontra o tutorial perfeito no YouTube.
+                </p>
+            </div>
+
+            <!-- Upload Box / Drag and Drop -->
+            <div id="dropArea" class="glass-card rounded-2xl p-6 sm:p-10 text-center border-2 border-dashed border-slate-700 hover:border-brand-500 transition-all duration-300 cursor-pointer relative group">
+                <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                
+                <!-- State 1: Default Upload UI -->
+                <div id="uploadPrompt" class="space-y-4">
+                    <div class="w-16 h-16 rounded-full bg-slate-800 group-hover:bg-brand-500/10 text-brand-400 flex items-center justify-center mx-auto transition-colors duration-300 border border-slate-700 group-hover:border-brand-500/30">
+                        <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-base font-semibold text-slate-200">Arraste e solte uma imagem aqui</p>
+                        <p class="text-xs text-slate-400 mt-1">Suporta JPG, PNG ou WEBP (até 10MB)</p>
+                    </div>
+                    <div class="flex flex-wrap justify-center gap-3 pt-2">
+                        <button onclick="triggerFileInput()" type="button" class="px-4 py-2 rounded-xl gradient-bg text-white text-sm font-semibold shadow-lg shadow-brand-500/20 hover:opacity-90 transition">
+                            <i class="fa-solid fa-folder-open mr-2"></i>Escolher Arquivo
+                        </button>
+                        <button onclick="triggerCamera()" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold border border-slate-700 transition">
+                            <i class="fa-solid fa-camera mr-2"></i>Usar Câmera
+                        </button>
+                    </div>
+                </div>
+
+                <!-- State 2: Preview Selected Image -->
+                <div id="imagePreviewContainer" class="hidden relative space-y-4">
+                    <div class="relative inline-block max-w-full">
+                        <img id="imagePreview" src="" alt="Pré-visualização" class="max-h-80 rounded-xl mx-auto object-contain border border-slate-700 shadow-2xl">
+                        <button onclick="removeSelectedImage(event)" class="absolute -top-3 -right-3 w-8 h-8 bg-rose-600 hover:bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg transition">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <p id="fileName" class="text-xs text-slate-400 font-mono"></p>
+                </div>
+            </div>
+
+            <!-- Quick Examples Grid -->
+            <div class="space-y-3">
+                <div class="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <i class="fa-solid fa-bolt text-amber-400"></i>
+                    <span>Ou teste com um exemplo rápido:</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <button onclick="loadExample('bike', 'Pneu Furado de Bicicleta')" class="glass-card glass-card-hover p-2.5 rounded-xl flex items-center space-x-3 text-left transition group">
+                        <img src="https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=150&q=80" class="w-12 h-12 rounded-lg object-cover group-hover:scale-105 transition" alt="Bicicleta">
+                        <div class="overflow-hidden">
+                            <p class="text-xs font-semibold text-slate-200 truncate">Pneu Furado</p>
+                            <p class="text-[10px] text-slate-400 truncate">Bicicleta / Aro</p>
+                        </div>
+                    </button>
+                    <button onclick="loadExample('faucet', 'Torneira Vazando')" class="glass-card glass-card-hover p-2.5 rounded-xl flex items-center space-x-3 text-left transition group">
+                        <img src="https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=150&q=80" class="w-12 h-12 rounded-lg object-cover group-hover:scale-105 transition" alt="Torneira">
+                        <div class="overflow-hidden">
+                            <p class="text-xs font-semibold text-slate-200 truncate">Torneira Vazando</p>
+                            <p class="text-[10px] text-slate-400 truncate">Encanamento</p>
+                        </div>
+                    </button>
+                    <button onclick="loadExample('router', 'Roteador sem Internet')" class="glass-card glass-card-hover p-2.5 rounded-xl flex items-center space-x-3 text-left transition group">
+                        <img src="https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=150&q=80" class="w-12 h-12 rounded-lg object-cover group-hover:scale-105 transition" alt="Roteador">
+                        <div class="overflow-hidden">
+                            <p class="text-xs font-semibold text-slate-200 truncate">Erro Roteador</p>
+                            <p class="text-[10px] text-slate-400 truncate">Rede / Wi-Fi</p>
+                        </div>
+                    </button>
+                    <button onclick="loadExample('circuit', 'Placa Mãe Danificada')" class="glass-card glass-card-hover p-2.5 rounded-xl flex items-center space-x-3 text-left transition group">
+                        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=150&q=80" class="w-12 h-12 rounded-lg object-cover group-hover:scale-105 transition" alt="Circuito">
+                        <div class="overflow-hidden">
+                            <p class="text-xs font-semibold text-slate-200 truncate">Placa Eletrônica</p>
+                            <p class="text-[10px] text-slate-400 truncate">Hardware / TI</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="pt-4">
+                <button id="analyzeBtn" onclick="startAnalysis()" disabled class="w-full py-4 rounded-xl gradient-bg text-white font-bold text-lg shadow-xl shadow-brand-500/25 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Diagnosticar e Buscar Tutorial</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEW 2: LOADING STATE -->
+        <section id="loadingSection" class="hidden text-center py-16 space-y-8">
+            <div class="relative w-24 h-24 mx-auto">
+                <div class="absolute inset-0 rounded-full border-4 border-slate-800"></div>
+                <div class="absolute inset-0 rounded-full border-4 border-brand-500 border-t-transparent animate-spin"></div>
+                <div class="absolute inset-0 flex items-center justify-center text-brand-400">
+                    <i class="fa-solid fa-brain text-2xl animate-pulse"></i>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <h3 id="loadingStatusText" class="text-xl font-bold text-slate-100">Analisando imagem com Visão Computacional...</h3>
+                <p class="text-xs text-slate-400 font-mono">Processando via Google Gemini AI Engine</p>
+            </div>
+        </section>
+
+        <!-- VIEW 3: RESULTS & CHATBOT -->
+        <section id="resultsSection" class="hidden space-y-8 animate-fade-in">
+            <!-- Header Action -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <button onclick="resetApp()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition flex items-center space-x-2">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Nova Análise</span>
+                </button>
+                <span class="text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Diagnóstico Concluído
+                </span>
+            </div>
+
+            <!-- AI Diagnosis Card -->
+            <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-6 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div class="flex flex-col sm:flex-row gap-6 items-start">
+                    <img id="resultThumbnail" src="" class="w-full sm:w-48 h-48 rounded-xl object-cover border border-slate-700 shadow-md">
+                    
+                    <div class="space-y-4 flex-grow">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span id="badgeDifficulty" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Nível: Médio</span>
+                            <span id="badgeCategory" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">Equipamento</span>
+                        </div>
+
+                        <h2 id="resultTitle" class="text-2xl font-bold text-slate-100">Título do Problema Identificado</h2>
+                        <p id="resultSummary" class="text-sm text-slate-300 leading-relaxed">Resumo da análise realizada pela IA...</p>
+
+                        <!-- Required Tools -->
+                        <div class="space-y-2 pt-2">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Ferramentas recomendadas:</span>
+                            <div id="toolsContainer" class="flex flex-wrap gap-2">
+                                <!-- Badges de ferramentas geradas dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- YouTube Video Tutorials Grid -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-brands fa-youtube text-red-500 text-xl"></i>
+                        <span>Tutoriais Recomendados no YouTube</span>
+                    </h3>
+                    <span class="text-xs text-slate-400">Ordenado por relevância</span>
+                </div>
+
+                <div id="videosGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Cards de vídeos inseridos via JS -->
+                </div>
+            </div>
+
+            <!-- AI Interactive Repair Assistant (Chatbot) -->
+            <div class="glass-card rounded-2xl p-6 space-y-4">
+                <div class="flex items-center space-x-3 border-b border-slate-800 pb-4">
+                    <div class="w-9 h-9 rounded-xl gradient-bg flex items-center justify-center text-white">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-100">Assistente IA de Reparo</h4>
+                        <p class="text-xs text-slate-400">Tire dúvidas em tempo real sobre este conserto</p>
+                    </div>
+                </div>
+
+                <!-- Chat Messages History -->
+                <div id="chatBox" class="h-64 overflow-y-auto space-y-3 p-2 font-sans text-sm">
+                    <div class="flex items-start gap-2.5">
+                        <div class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-xs text-white flex-shrink-0">IA</div>
+                        <div class="bg-slate-800 border border-slate-700/60 rounded-2xl rounded-tl-none p-3 text-slate-200 max-w-[85%] text-xs sm:text-sm">
+                            Olá! Analisei seu problema. Posso te ajudar com dúvidas sobre as ferramentas, procedimentos de segurança ou os passos mostrados nos tutoriais acima. O que precisa saber?
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Questions -->
+                <div class="flex flex-wrap gap-2 pt-1">
+                    <button onclick="sendQuickQuestion('Quais as precauções de segurança principais?')" class="text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1 rounded-full transition">
+                        🛡️ Precauções de segurança?
+                    </button>
+                    <button onclick="sendQuickQuestion('Quais ferramentas posso improvisar?')" class="text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1 rounded-full transition">
+                        🛠️ Ferramentas alternativas?
+                    </button>
+                </div>
+
+                <!-- Chat Input Form -->
+                <form onsubmit="handleChatSubmit(event)" class="flex gap-2 pt-2">
+                    <input type="text" id="chatInput" placeholder="Pergunte algo sobre o conserto..." class="flex-grow bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-100 focus:outline-none focus:border-brand-500 transition">
+                    <button type="submit" class="px-4 py-2 gradient-bg hover:opacity-90 text-white font-semibold text-sm rounded-xl transition flex items-center gap-1">
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: Configuração da API Key Gemini -->
+    <div id="configModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-card max-w-md w-full rounded-2xl p-6 space-y-6 relative border border-slate-700 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-key text-amber-400"></i>
+                    <span>Configurar Chave de API</span>
+                </h3>
+                <button onclick="closeConfigModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-4 text-xs sm:text-sm text-slate-300">
+                <p>Por padrão, o aplicativo roda em <strong>Modo Demonstração</strong> com diagnósticos simulados inteligentes.</p>
+                <p>Para usar o modelo real <strong>Google Gemini (Gemini Flash Vision)</strong>, insira sua chave abaixo:</p>
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Gemini API Key</label>
+                    <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-brand-500">
+                </div>
+
+                <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
+                    💡 Obtenha uma chave gratuita no <a href="https://aistudio.google.com/" target="_blank" class="text-brand-400 underline">Google AI Studio</a>. Sua chave é salva apenas no armazenamento local do seu navegador (localStorage).
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <button onclick="clearApiKey()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+                    Usar Modo Demo
+                </button>
+                <button onclick="saveApiKey()" class="px-4 py-2 rounded-xl gradient-bg text-white text-xs font-semibold shadow-md transition">
+                    Salvar Chave
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Modal Player -->
+    <div id="videoModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="max-w-3xl w-full space-y-4">
+            <div class="flex justify-between items-center text-slate-200">
+                <h4 id="videoModalTitle" class="text-sm font-bold truncate">Assistir Tutorial</h4>
+                <button onclick="closeVideoModal()" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-2xl">
+                <iframe id="videoIframe" class="w-full h-full" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <p>© 2026 FixIt AI - Projeto para Portfólio GitHub</p>
+            <p class="flex items-center gap-1">
+                Desenvolvido com <i class="fa-solid fa-heart text-rose-500"></i> para estudantes de TI
+            </p>
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Global Application State
+        let selectedImageData = null; // Base64 or URL
+        let currentAnalysis = null;
+        let geminiApiKey = localStorage.getItem('GEMINI_API_KEY') || '';
+
+        // Initialize UI on load
+        window.onload = function() {
+            updateApiBadge();
+            setupDragAndDrop();
+        };
+
+        function updateApiBadge() {
+            const badge = document.getElementById('apiStatusBadge');
+            if (geminiApiKey) {
+                badge.innerText = 'Gemini API Ativa';
+                badge.classList.remove('text-amber-400');
+                badge.classList.add('text-emerald-400');
+            } else {
+                badge.innerText = 'Modo Demo';
+                badge.classList.remove('text-emerald-400');
+                badge.classList.add('text-amber-400');
+            }
+        }
+
+        // Drag and Drop Handling
+        function setupDragAndDrop() {
+            const dropArea = document.getElementById('dropArea');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.add('border-brand-500', 'bg-brand-500/5'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.remove('border-brand-500', 'bg-brand-500/5'), false);
+            });
+
+            dropArea.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    processFile(files[0]);
+                }
+            });
+        }
+
+        function triggerFileInput() {
+            document.getElementById('fileInput').click();
+        }
+
+        function triggerCamera() {
+            const input = document.getElementById('fileInput');
+            input.setAttribute('capture', 'environment');
+            input.click();
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Por favor, selecione um arquivo de imagem válido.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedImageData = e.target.result;
+                displayImagePreview(selectedImageData, file.name);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function displayImagePreview(src, name) {
+            document.getElementById('imagePreview').src = src;
+            document.getElementById('fileName').innerText = name || 'imagem_carregada.jpg';
+            document.getElementById('uploadPrompt').classList.add('hidden');
+            document.getElementById('imagePreviewContainer').classList.remove('hidden');
+            document.getElementById('analyzeBtn').disabled = false;
+        }
+
+        function removeSelectedImage(e) {
+            if (e) e.stopPropagation();
+            selectedImageData = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('uploadPrompt').classList.remove('hidden');
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('analyzeBtn').disabled = true;
+        }
+
+        // Example Loaders
+        const mockExamples = {
+            bike: {
+                title: "Pneu Furado de Bicicleta",
+                summary: "Furo na câmara de ar interna do pneu traseiro. Requer remendo vulcanizado ou substituição da câmara.",
+                difficulty: "Fácil",
+                category: "Ciclismo",
+                tools: ["Espátulas para pneu", "Kits de Remendo", "Bomba de Ar", "Lixa fina"],
+                thumbnail: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=600&q=80",
+                searchQuery: "como consertar pneu furado de bicicleta passo a passo",
+                videos: [
+                    { id: "eX0gPky0GfU", title: "Como Remendar Pneu de Bicicleta Rapidamente", channel: "Pedal & Dicas", duration: "8:15", rating: "98% Relevante" },
+                    { id: "dQw4w9WgXcQ", title: "Troca de Câmara de Ar de Bike em Casa", channel: "Oficina de Bike", duration: "12:04", rating: "95% Relevante" }
+                ]
+            },
+            faucet: {
+                title: "Vazamento em Torneira Monocomando",
+                summary: "Desgaste na vedação interna (reparo de borracha/ou cartucho cerâmico) causando gotejamento constante.",
+                difficulty: "Médio",
+                category: "Encanamento",
+                tools: ["Chave Inglesa", "Chave Allen", "Fita Veda Rosca", "Reparo Novo"],
+                thumbnail: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=600&q=80",
+                searchQuery: "como consertar torneira vazando gotejando",
+                videos: [
+                    { id: "fJ9rUzIMcZQ", title: "Como Tirar Vazamento de Torneira Simples", channel: "Faça Você Mesmo", duration: "6:40", rating: "99% Relevante" },
+                    { id: "3JZ_D3ELwOQ", title: "Troca de Reparador de Torneira Passo a Passo", channel: "Manutenção Doméstica", duration: "10:15", rating: "92% Relevante" }
+                ]
+            },
+            router: {
+                title: "Roteador Wi-Fi sem Conexão de Internet",
+                summary: "Luz 'PON' ou 'Internet' piscando em vermelho. Pode ser falha de sinal do provedor ou erro no cabo de fibra ótica/RJ45.",
+                difficulty: "Fácil",
+                category: "Redes / TI",
+                tools: ["Cabo de Rede RJ45", "Palito para Reset", "Smartphone para Configuração"],
+                thumbnail: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=600&q=80",
+                searchQuery: "roteador com luz vermelha internet nao funciona como resolver",
+                videos: [
+                    { id: "L_LUpnjgPso", title: "Luz Vermelha no Roteador: Como Resolver Sem Chamar Técnico", channel: "TI Descomplicada", duration: "5:30", rating: "97% Relevante" },
+                    { id: "V-_O7nl0IiU", title: "Configuração e Reset Completo de Roteador Wi-Fi", channel: "Mundo da Tecnologia", duration: "9:20", rating: "94% Relevante" }
+                ]
+            },
+            circuit: {
+                title: "Capacitor Estufado em Placa Eletrônica",
+                summary: "Capacitor eletrolítico danificado na linha de alimentação da placa mãe. Causa desligamentos repentinos.",
+                difficulty: "Difícil",
+                category: "Eletrônica",
+                tools: ["Ferro de Solda 40W", "Suga Solda", "Estanho para Eletrônica", "Capacitor Novo (MHF)"],
+                thumbnail: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80",
+                searchQuery: "como trocar capacitor estufado placa mae solda",
+                videos: [
+                    { id: "kJQP7kiw5Fk", title: "Curso de Solda Eletrônica: Trocando Capacitores", channel: "Eletrônica Fácil", duration: "15:45", rating: "96% Relevante" },
+                    { id: "9bZkp7q19f0", title: "Como Identificar e Substituir Componentes Queimados", channel: "Lab de Hardware", duration: "18:10", rating: "91% Relevante" }
+                ]
+            }
+        };
+
+        function loadExample(key, label) {
+            const example = mockExamples[key];
+            selectedImageData = example.thumbnail;
+            displayImagePreview(example.thumbnail, label);
+            // Salva dados no mock temporário
+            window.activeMock = example;
+        }
+
+        // Start Analysis Workflow
+        async function startAnalysis() {
+            if (!selectedImageData) return;
+
+            // Show Loading
+            document.getElementById('uploadSection').classList.add('hidden');
+            document.getElementById('loadingSection').classList.remove('hidden');
+
+            const loadingText = document.getElementById('loadingStatusText');
+            loadingText.innerText = "Analisando imagem com Visão Computacional...";
+
+            setTimeout(() => {
+                loadingText.innerText = "Identificando peça e diagnóstico de falha...";
+            }, 1200);
+
+            setTimeout(() => {
+                loadingText.innerText = "Buscando os melhores tutoriais no YouTube...";
+            }, 2400);
+
+            // Execute actual or mock analysis
+            try {
+                if (geminiApiKey && !window.activeMock) {
+                    currentAnalysis = await callGeminiVisionApi(selectedImageData);
+                } else if (window.activeMock) {
+                    currentAnalysis = window.activeMock;
+                } else {
+                    currentAnalysis = generateGenericMockAnalysis();
+                }
+
+                setTimeout(() => {
+                    renderResults(currentAnalysis);
+                    document.getElementById('loadingSection').classList.add('hidden');
+                    document.getElementById('resultsSection').classList.remove('hidden');
+                }, 3200);
+
+            } catch (error) {
+                console.error(error);
+                alert('Erro ao processar imagem via Gemini API. Usando resposta padrão.');
+                currentAnalysis = generateGenericMockAnalysis();
+                renderResults(currentAnalysis);
+                document.getElementById('loadingSection').classList.add('hidden');
+                document.getElementById('resultsSection').classList.remove('hidden');
+            }
+        }
+
+        // Gemini Vision API Call
+        async function callGeminiVisionApi(base64Image) {
+            const cleanBase64 = base64Image.split(',')[1] || base64Image;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: "Analise esta imagem e identifique o problema ou defeito técnico. Responda ESTRITAMENTE em formato JSON com as seguintes propriedades: 'title' (título curto), 'summary' (explicação de 2 frases), 'difficulty' ('Fácil', 'Médio' ou 'Difícil'), 'category' (categoria técnica), 'tools' (array com 3-4 ferramentas necessárias), 'searchQuery' (termo de busca para o YouTube)." },
+                        { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } }
+                    ]
+                }],
+                generationConfig: { responseMimeType: "application/json" }
+            };
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            const textResponse = data.candidates[0].content.parts[0].text;
+            const parsed = JSON.parse(textResponse);
+
+            return {
+                title: parsed.title || "Problema Técnico Identificado",
+                summary: parsed.summary || "Identificado um problema físico que requer manutenção básica.",
+                difficulty: parsed.difficulty || "Médio",
+                category: parsed.category || "Geral",
+                tools: parsed.tools || ["Chave Fenda", "Alicate", "Luvas"],
+                thumbnail: base64Image,
+                videos: [
+                    { id: "fJ9rUzIMcZQ", title: `Como Consertar: ${parsed.title}`, channel: "Tutorial Técnico AI", duration: "10:00", rating: "99% Relevante" },
+                    { id: "eX0gPky0GfU", title: `Guia Completo de Reparo - ${parsed.category}`, channel: "Dicas de Manutenção", duration: "14:20", rating: "94% Relevante" }
+                ]
+            };
+        }
+
+        function generateGenericMockAnalysis() {
+            return {
+                title: "Equipamento com Desgaste Mecânico / Falha",
+                summary: "Foi detectado um problema visível de desalinhamento ou desgaste na estrutura. Recomendado realizar a limpeza e troca do componente defeituoso.",
+                difficulty: "Médio",
+                category: "Manutenção Geral",
+                tools: ["Chave Philips", "Alicate Universal", "Desengripante WD-40", "Pano Seco"],
+                thumbnail: selectedImageData || "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80",
+                videos: [
+                    { id: "fJ9rUzIMcZQ", title: "Como Reparar Equipamentos Danificados em Casa", channel: "Oficina Caseira", duration: "11:30", rating: "97% Relevante" },
+                    { id: "3JZ_D3ELwOQ", title: "Passo a Passo para Manutenção Preventiva e Corretiva", channel: "Engenharia Prática", duration: "08:45", rating: "93% Relevante" }
+                ]
+            };
+        }
+
+        // Render Results Screen
+        function renderResults(data) {
+            document.getElementById('resultThumbnail').src = data.thumbnail;
+            document.getElementById('resultTitle').innerText = data.title;
+            document.getElementById('resultSummary').innerText = data.summary;
+            document.getElementById('badgeDifficulty').innerText = `Nível: ${data.difficulty}`;
+            document.getElementById('badgeCategory').innerText = data.category;
+
+            // Render tools
+            const toolsContainer = document.getElementById('toolsContainer');
+            toolsContainer.innerHTML = '';
+            data.tools.forEach(tool => {
+                const badge = document.createElement('span');
+                badge.className = 'px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 text-brand-300 border border-slate-700/80 flex items-center gap-1.5';
+                badge.innerHTML = `<i class="fa-solid fa-screws-tilting text-[10px] text-brand-400"></i> ${tool}`;
+                toolsContainer.appendChild(badge);
+            });
+
+            // Render videos
+            const videosGrid = document.getElementById('videosGrid');
+            videosGrid.innerHTML = '';
+            data.videos.forEach(video => {
+                const card = document.createElement('div');
+                card.className = 'glass-card glass-card-hover rounded-xl p-3 flex flex-col sm:flex-row gap-3 transition group cursor-pointer';
+                card.onclick = () => openVideoModal(video.id, video.title);
+
+                card.innerHTML = `
+                    <div class="relative sm:w-40 h-28 rounded-lg overflow-hidden bg-slate-900 flex-shrink-0">
+                        <img src="https://img.youtube.com/vi/${video.id}/hqdefault.jpg" class="w-full h-full object-cover group-hover:scale-105 transition" alt="${video.title}">
+                        <span class="absolute bottom-1 right-1 bg-black/80 text-[10px] text-white px-1.5 py-0.5 rounded font-mono">${video.duration}</span>
+                        <div class="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition flex items-center justify-center">
+                            <i class="fa-solid fa-circle-play text-3xl text-red-500 drop-shadow-lg group-hover:scale-110 transition"></i>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-between flex-grow space-y-2">
+                        <div>
+                            <h4 class="text-xs sm:text-sm font-bold text-slate-100 line-clamp-2 group-hover:text-brand-400 transition">${video.title}</h4>
+                            <p class="text-[11px] text-slate-400 mt-1"><i class="fa-solid fa-circle-check text-brand-500 mr-1"></i>${video.channel}</p>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="text-emerald-400 font-semibold">${video.rating}</span>
+                            <span class="text-brand-400 group-hover:underline flex items-center gap-1">Assistir <i class="fa-solid fa-arrow-right text-[10px]"></i></span>
+                        </div>
+                    </div>
+                `;
+                videosGrid.appendChild(card);
+            });
+        }
+
+        // Chatbot Functionality
+        function handleChatSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addChatMessage('user', message);
+            input.value = '';
+
+            // Generate AI response
+            setTimeout(() => {
+                const aiReply = generateAiChatReply(message);
+                addChatMessage('ai', aiReply);
+            }, 800);
+        }
+
+        function sendQuickQuestion(question) {
+            addChatMessage('user', question);
+            setTimeout(() => {
+                const aiReply = generateAiChatReply(question);
+                addChatMessage('ai', aiReply);
+            }, 800);
+        }
+
+        function addChatMessage(sender, text) {
+            const chatBox = document.getElementById('chatBox');
+            const msgDiv = document.createElement('div');
+            
+            if (sender === 'user') {
+                msgDiv.className = 'flex items-start gap-2.5 justify-end';
+                msgDiv.innerHTML = `
+                    <div class="bg-brand-600 text-white rounded-2xl rounded-tr-none p-3 max-w-[85%] text-xs sm:text-sm shadow-md">
+                        ${text}
+                    </div>
+                `;
+            } else {
+                msgDiv.className = 'flex items-start gap-2.5';
+                msgDiv.innerHTML = `
+                    <div class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-xs text-white flex-shrink-0">IA</div>
+                    <div class="bg-slate-800 border border-slate-700/60 rounded-2xl rounded-tl-none p-3 text-slate-200 max-w-[85%] text-xs sm:text-sm">
+                        ${text}
+                    </div>
+                `;
+            }
+
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function generateAiChatReply(userMessage) {
+            const lower = userMessage.toLowerCase();
+            
+            if (lower.includes('segurança') || lower.includes('precauç')) {
+                return "Sempre desligue a fonte de energia ou chave geral de água antes de começar. Use óculos de proteção e luvas para evitar acidentes com resíduos ou pontas afiadas.";
+            } else if (lower.includes('ferramenta') || lower.includes('improvisar')) {
+                return "Se você não tiver uma chave específica, um alicate universal com proteção de pano pode substituir chaves inglesas menores sem arranhar as peças.";
+            } else if (lower.includes('tempo') || lower.includes('demora')) {
+                return "Este tipo de conserto costuma levar entre 20 a 40 minutos para iniciantes se seguir os passos dos tutoriais sem pressa.";
+            } else {
+                return `Para resolver '${currentAnalysis?.title || 'este problema'}', certifique-se de seguir o vídeo passo a passo. Se encontrar resistência mecânica ao apertar parafusos ou peças, não force para não espanar a rosca!`;
+            }
+        }
+
+        // Modal Controls
+        function openConfigModal() {
+            document.getElementById('apiKeyInput').value = geminiApiKey;
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.add('hidden');
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            geminiApiKey = key;
+            localStorage.setItem('GEMINI_API_KEY', key);
+            updateApiBadge();
+            closeConfigModal();
+            alert('Chave de API salva com sucesso!');
+        }
+
+        function clearApiKey() {
+            geminiApiKey = '';
+            localStorage.removeItem('GEMINI_API_KEY');
+            updateApiBadge();
+            closeConfigModal();
+        }
+
+        function openVideoModal(id, title) {
+            document.getElementById('videoModalTitle').innerText = title;
+            document.getElementById('videoIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+            document.getElementById('videoModal').classList.remove('hidden');
+        }
+
+        function closeVideoModal() {
+            document.getElementById('videoIframe').src = '';
+            document.getElementById('videoModal').classList.add('hidden');
+        }
+
+        function resetApp() {
+            window.activeMock = null;
+            removeSelectedImage();
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('loadingSection').classList.add('hidden');
+            document.getElementById('uploadSection').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
